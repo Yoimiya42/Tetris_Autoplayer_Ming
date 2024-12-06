@@ -62,7 +62,14 @@ Alright, all core ideas are above. I believe that the secret to achieving a high
 
 ## About my final score
 
-My highest score before the server shut down was 41,362, ranking 14th. I can consistently achieve over 30,000, with a approximately 50% chance of hitting 40,000+. The best-performing versions are 
+My highest score before the server shut down was 41,362, ranking 14th. I can consistently achieve over 30,000, with a approximately 50% chance of hitting 40,000+. 
+![FinalScoreboard](FinalScoreboard.png)
+![FinalLeaderboard](FinalLeaderboard.jpg)
+![MVP](MVP.png)
+
+
+
+The best-performing versions are 
 `player_mingv7.py`,`player_mingv11.py`,`player_mingv14.py`
 
 `player_mingv7.py`:  
