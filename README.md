@@ -62,15 +62,15 @@ Alright, all core ideas are above. I believe that the secret to achieving a high
 
 ## About my final score
 
-My highest score before the server shut down was 41,362, ranking 14th. I can consistently achieve over 30,000, with a approximately 50% chance of hitting 40,000+. 
+My highest score before the server shut down was 41,362, ranking 14th. I can consistently achieve over 30,000, with a approximately 50% chance of hitting 40,000+.   
+
 ![FinalScoreboard](FinalScoreboard.png)
 ![FinalLeaderboard](FinalLeaderboard.jpg)
 ![MVP](MVP.png)
 
 
 
-The best-performing versions are 
-`player_mingv7.py`,`player_mingv11.py`,`player_mingv14.py`
+The best-performing versions are `player_mingv7.py`,`player_mingv11.py`,`player_mingv14.py`
 
 `player_mingv7.py`:  
 The evaluation function in this file does not yet include a reward for leaving the first column empty; it only offers some guidance before the iteration starts.   
