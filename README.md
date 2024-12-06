@@ -101,4 +101,4 @@ Future optimization:
 - Introduce a penalty for clearing only 1 or 2 lines at once.
 - Dynamically adjust the weight of heuristics based on the current maximum height, rather than keeping it constant throughout...
 
-If you have any better ideas, feel free to comment. Thanks!!!
+If you have any better ideas, feel free to comment. **Thanks!!!**
