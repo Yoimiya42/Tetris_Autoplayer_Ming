@@ -8,7 +8,7 @@ from board import Board, Direction, Rotation, Action, Shape
 from constants import BOARD_HEIGHT, BOARD_WIDTH, DEFAULT_SEED, INTERVAL, \
     BLOCK_LIMIT
 from exceptions import BlockLimitException
-from player import SelectedPlayer, Player
+from player_mingv3 import SelectedPlayer, Player
 
 DRAW_INTERVAL = 100
 

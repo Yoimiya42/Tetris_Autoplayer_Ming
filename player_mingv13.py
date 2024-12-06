@@ -1,10 +1,9 @@
-
-# v7.0
-
 from board import Direction, Rotation, Action, Shape
 from random import Random
 import time
 
+
+# v11 : consecutive lines assessment 
 
 class Player:
     def choose_action(self, board):
@@ -18,14 +17,24 @@ class MingPlayer(Player):
     previous_height = 24
     previous_holes = 0
     # weighted for each heuristic
-    weighted_height= - 0.51
-    weighted_holes = - 0.95
-    weighted_bumpiness = - 0.18
-    weighted_lines_cleared = 1.3 #0.760066
+    weighted_height= - 0.510066
+    weighted_holes = -1000 # - 0.954915
+    weighted_bumpiness = - 0.184483
+    weighted_lines_cleared = 1.5 #0.760066
+    
+    weighted_three_consecutive_lines = 200
+    # weighted_one_line_cleared = -50
+
+    # 4 lines cleared = 1600
+    # 3 lines cleared = 200 ->800
+    #
+    # holes_penalty = -1000
+    # consecutive_lines_4 = 1000
+    # consecutive_lines_3 = 250
+    # consecutive_lines_2 = 60
+    # consecutive_lines_1 = 15 
 
     bottom_holes_penalty = 0
-
-
 
     counter_block = 1
 
@@ -34,13 +43,6 @@ class MingPlayer(Player):
     discord_counter = 0
 #_______________________________________________________________________________#
     #  Heuristic 1 :  Height Increase
-    def get_stack_height(self, board):
-        topmost_y = 24
-        for (x,y) in board.cells:
-            if y < topmost_y:
-                topmost_y = y
-
-        return 24 - topmost_y
 
     def _generate_height_lists(self,board):
         height_lists = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -105,7 +107,7 @@ class MingPlayer(Player):
         bumpiness = 0
         
         for i in range(len(height_list) - 1):
-            bumpiness += abs(height_list[i] - height_list[i+1])
+            bumpiness += (height_list[i] - height_list[i+1]) ** 2
         return bumpiness
 
     #  Heuristic 5 :  Lines Cleared
@@ -118,22 +120,56 @@ class MingPlayer(Player):
 
         if diff_score >= 1600:
             self.lines_cleared = 4
-            return 100
+            return 1600
         
         elif diff_score >= 400:
             self.lines_cleared = 3
+            return self.weighted_three_consecutive_lines
+        
         elif diff_score >= 100:
             self.lines_cleared = 2
+
         elif diff_score >= 25:
             self.lines_cleared = 1
+            # return self.weighted_one_line_cleared
 
-        return lines_cleared * self.weighted_lines_cleared
+        return 0
     
-    # Heuristic 6 
+    # Heuristic 6  : Consecutive 9
+    def calculate_consecutive_lines(self, board):
+        consecutive_lines = 0
+        max_consecutive_lines= 0
+        
+        for y in range(0,24):
+            if all((x, y) in board.cells for x in range(1, 10)) and (0, y) not in board.cells:
+                consecutive_lines+=1
+                max_consecutive_lines = max(max_consecutive_lines, consecutive_lines)
+                
+            else:
+                consecutive_lines = 0
+
+        max_consecutive_lines=min(max_consecutive_lines, 4)
+        if max_consecutive_lines == 4:
+            return 1000
+        elif max_consecutive_lines == 3:
+            return 250
+        elif max_consecutive_lines == 2:    
+            return 60
+        elif max_consecutive_lines == 1:
+            return 15
+        else:
+            return 0
                                
     
 ######################################### Evaluation Function #############################################
     def evaluation(self, board):
+
+        if self._get_max_height(board) > 17:
+            self.weighted_three_consecutive_lines = 800
+            # self.weighted_one_line_cleared = 50
+        else:
+            self.weighted_three_consecutive_lines = 200
+            # self.weighted_one_line_cleared = -50
 
         height_increase = self.calculate_height_increase(board)
         bumpiness = self.calculate_bumpiness(board)
@@ -145,23 +181,43 @@ class MingPlayer(Player):
         evaluation_score = (height_increase * self.weighted_height 
                             + holes * self.weighted_holes
                             # + self.bottom_holes_penalty * self.weighted_holes
-                            + wells * self.weighted_holes * 2.0
+                            # + wells * self.weighted_holes * 2.0
                             + bumpiness * self.weighted_bumpiness 
-                            + lines_cleared)
+                            + lines_cleared
+                            + self.calculate_consecutive_lines(board))
         
         
         return evaluation_score
 #_________________________________________________________________________________________________________#
    # Action Selection
+    def _rotate_and_record(self, board, rotations, actions_list):
+        for _ in range(rotations):
+            if board.falling is not None and board.falling.shape != Shape.O:
+                board.rotate(Rotation.Anticlockwise)
+                actions_list.append(Rotation.Anticlockwise)
+
+    def _move_and_record(self, board, target_x, actions_list):
+        has_landed = False
+        start_x = board.falling.left if board.falling is not None else None
+
+        while start_x is not None and start_x > target_x and not has_landed:
+            board.move(Direction.Left)
+            actions_list.append(Direction.Left)
+            start_x = board.falling.left if board.falling is not None else None
+            if start_x is None:
+                has_landed = True
+                break
+
+        while start_x is not None and start_x < target_x and not has_landed:
+            board.move(Direction.Right)
+            actions_list.append(Direction.Right)
+            start_x = board.falling.left if board.falling is not None else None
+            if start_x is None:
+                has_landed = True
+                break
+
+        return has_landed
     
-
-
-
-
-
-
-
-
 #_______________________________________________________________________________#
     def choose_action(self, board):
 
@@ -181,7 +237,7 @@ class MingPlayer(Player):
         max_height = max(self._generate_height_lists(board))
         min_height = min(self._generate_height_lists(board))
         diff_height = max_height - min_height
-        self.prevHeight = self.get_stack_height(board)
+        self.prevHeight = max_height
 
 
         if max_height > 18 and board.bombs_remaining > 0:
@@ -196,98 +252,50 @@ class MingPlayer(Player):
         if self.discord_counter > 10 and board.discards_remaining > 0 and max_height > 16 and self.counter_block > 150:
             self.discord_counter -= 1
             return [Action.Discard]  
-        if self.discord_counter > 6 and board.discards_remaining > 0 and self.counter_block > 350:
+        if self.discord_counter > 6 and board.discards_remaining > 0 and max_height > 14 and self.counter_block > 300:
             self.discord_counter -= 1
             return [Action.Discard]
 
         ###### 1st block ######
-        if max_height < 6 and diff_height != 4:
-            start = 1 
-        else:
-            start = 0 
+        # if max_height < 8 and diff_height != 4:
+        #     start = 1 
+        # else:
+        #     start = 0 
 
-        for trans1 in range(start,10):
+        for trans1 in range(0, 10):
             for rot1 in range(0, 4):
                 demo1_board = board.clone()
                 actions_list1 = []
                 has_landed1 = False
 
                 if rot1 > 0:
-                    for _ in range(0, rot1):
-                        if demo1_board.falling is not None:
-                            demo1_board.rotate(Rotation.Anticlockwise)
-                            actions_list1.append(Rotation.Anticlockwise)
+                    self._rotate_and_record(demo1_board, rot1, actions_list1)
 
                 if demo1_board.falling is not None:
-                    start_x = demo1_board.falling.left
+                    has_landed1 = self._move_and_record(demo1_board, trans1, actions_list1)
 
-                    while start_x > trans1 and has_landed1 is False:
-                        demo1_board.move(Direction.Left)
-                        actions_list1.append(Direction.Left)
-                        if demo1_board.falling is not None:
-                            start_x = demo1_board.falling.left
-                        else:
-                            has_landed1 = True
-                            break
-
-                    while start_x < trans1 and has_landed1 is False:
-                        demo1_board.move(Direction.Right)
-                        actions_list1.append(Direction.Right)
-
-                        if demo1_board.falling is not None:
-                            start_x = demo1_board.falling.left
-                        else:
-                            has_landed1 = True
-                            break
-
-
-                    if has_landed1 is False:
+                    if not has_landed1:
                         demo1_board.move(Direction.Drop)
                         actions_list1.append(Direction.Drop)
                         has_landed1 = True
 
                     score1 = self.evaluation(demo1_board)
 
-            ###### 2nd block ######
-                if has_landed1 is True:
-
+                ###### 2nd block ######
+                if has_landed1:
                     for trans2 in range(10):
                         for rot2 in range(4):
                             demo2_board = demo1_board.clone()
-                            actions_list2 = []
                             has_landed2 = False
+
                             if rot2 > 0:
-                                for _ in range(0, rot2):
-                                    if demo2_board.falling is not None:
-                                        demo2_board.rotate(Rotation.Anticlockwise)
-                                        actions_list2.append(Rotation.Anticlockwise)
+                                self._rotate_and_record(demo2_board, rot2, [])
 
                             if demo2_board.falling is not None:
-                                start_x2 = demo2_board.falling.left
+                                has_landed2 = self._move_and_record(demo2_board, trans2, [])
 
-                                while start_x2 > trans2 and has_landed2 is False:
-                                    demo2_board.move(Direction.Left)
-                                    actions_list2.append(Direction.Left)
-
-                                    if demo2_board.falling is not None:
-                                        start_x2 = demo2_board.falling.left
-                                    else:
-                                        has_landed2 = True
-                                        break
-
-                                while start_x2 < trans2 and has_landed2 is False:
-                                    demo2_board.move(Direction.Right)
-                                    actions_list2.append(Direction.Right)
-
-                                    if demo2_board.falling is not None:
-                                        start_x2 = demo2_board.falling.left
-                                    else:
-                                        has_landed2 = True
-                                        break
-
-                                if has_landed2 is False:
+                                if not has_landed2:
                                     demo2_board.move(Direction.Drop)
-                                    actions_list2.append(Direction.Drop)
 
                                 score2 = self.evaluation(demo2_board)
                                 final_score = score2
@@ -300,9 +308,8 @@ class MingPlayer(Player):
 
         if self._get_max_height(best_board) > 16 and self.lines_cleared <= 1 and board.bombs_remaining > 0:
             return Action.Bomb
-                                   
-
-        if best_holes > self.previous_holes and board.discards_remaining > 0:
+        
+        if best_holes - self.previous_holes > 2 and board.discards_remaining > 0 :
             return Action.Discard
 
         print("Best score: ", best_score)

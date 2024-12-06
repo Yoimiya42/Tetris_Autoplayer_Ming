@@ -2,7 +2,7 @@ from adversary import RandomAdversary
 from board import Board, Direction, Rotation, Action, Shape
 from constants import BOARD_HEIGHT, BOARD_WIDTH, BLOCK_LIMIT, PREFIX
 from exceptions import UnknownInstructionException, BlockLimitException
-from player import Player
+from player_ming import Player
 
 from sys import stderr
 from os import getenv

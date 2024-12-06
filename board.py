@@ -7,6 +7,7 @@ class Action(Enum):
     Bomb = 'BOMB'
     Discard = 'DISCARD'
 
+# A class inheriting from Enum is used to define the possible directions
 class Direction(Enum):
     """
     Possible directions to move a block, plus dropping.
@@ -43,6 +44,7 @@ class Shape(Enum):
 
 
 # Translate names of shapes to initial coordinates.
+# 'shape_to_cells' is a dictionary, key is the shape, value is a set of tuples.
 shape_to_cells = {
     Shape.I: {
         (0, 0),
@@ -114,7 +116,7 @@ class Position:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-
+# __eq__ is a method that is called when you use the == operator
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
@@ -123,41 +125,40 @@ class Bitmap:
     """
     Base class for classes that store information about cells.
     """
-
+# cells is a set of tuples : (x,y) x is the culumn, y is the row
     cells = None
-
+# 
     def collides(self, other):
         return any(cell in other for cell in self)
-
+# __iter__ is a method that returns an iterator object
     def __iter__(self):
-        return iter(self.cells)
+        return iter(self.cells)   # iter() returns an iterator object
 
     def __contains__(self, cell):
         return cell in self.cells
-
 
 class Block(Bitmap):
     """
     Keeps track of the position of cells of a block.
     """
-
+# shape is a Shape object
     shape = None
-    color = None
-    center = None
-
+    color = None # color is a string
+    center = None # center is a tuple of two floats
+ 
     def __init__(self, shape=None):
         self.shape = shape
         self.color = shape_to_color[shape]
-        self.cells = shape_to_cells[shape]
-        self.center = shape_to_center[shape]
+        self.cells = shape_to_cells[shape]  # cells is a set of tuples
+        self.center = shape_to_center[shape] # center is a tuple of two floats
 
-    @property
+    @property # @property is a decorator that makes a method behave like an attribute
     def left(self):
         """
         The leftmost x-position of the block.
         """
 
-        return min(x for (x, y) in self)
+        return min(x for (x, y) in self)  # iterate through the 'self.cells' set and return the minimum x value 
 
     @property
     def right(self):
@@ -165,7 +166,7 @@ class Block(Bitmap):
         The rightmost x-position of the block.
         """
 
-        return max(x for (x, y) in self)
+        return max(x for (x, y) in self) # iterate through the 'self.cells' set and return the maximum x value
 
     @property
     def top(self):
@@ -173,7 +174,7 @@ class Block(Bitmap):
         The topmost y-position of the block.
         """
 
-        return min(y for (x, y) in self)
+        return min(y for (x, y) in self) # iterate through the 'self.cells' set and return the minimum y value
 
     @property
     def bottom(self):
@@ -181,16 +182,17 @@ class Block(Bitmap):
         The bottommost y-position of the block.
         """
 
-        return max(y for (x, y) in self)
+        return max(y for (x, y) in self) # iterate through the 'self.cells' set and return the maximum y value
 
     def initialize(self, board):
         """
         Centers the block on the board.
         """
 
-        center = self.left + (self.right - self.left) // 2
+        center = self.left + (self.right - self.left) // 2   # midpoint
         shift = board.width // 2 - center
-        self.cells = {(x+shift, y) for (x, y) in self}
+        self.cells = {(x+shift, y) for (x, y) in self}  # for each tuple in self.cells, add 'shift' to the each x value
+        # "{}" is a set constructor
         self.center = self.center[0] + shift, self.center[1]
 
     def supported(self, board):
@@ -200,18 +202,20 @@ class Block(Bitmap):
         block down once more will mark it as dropped.
         """
 
-        return any(
+        return any( # any() returns Ture is any of the elements in the iterable is True
+            # check if the block's bottom is at the bottom of the board or if the block's bottom is on top of another block
             (x, y+1) in board or y+1 == board.height
             for (x, y) in self
+            # iterate through the 'self.cells' set 
         )
 
     def move(self, direction, board, count=1):
         """
-        Moves block count steps on on the board in the given direction. Returns
-        true if this action caused the block to be dropped, false otherwise.
+        Moves block count steps on on the board in the given direction. 
+        Returns true if this action caused the block to be dropped, false otherwise.
         """
 
-        old_cells = self.cells
+        old_cells = self.cells # save the current cells
 
         if direction == Direction.Right:
             self.cells = {(x+count, y) for (x, y) in self}
@@ -264,7 +268,8 @@ class Block(Bitmap):
             self.cells = {(int(-(y-cy)+cx), int(x-cx+cy)) for (x, y) in self}
         elif rotation == Rotation.Anticlockwise:
             self.cells = {(int(y-cy+cx), int(-(x-cx)+cy)) for (x, y) in self}
-
+        # After rotation, the center is still the same 
+        # Next, we need to check if the block is still within the boundaries of the board
         try:
             # If block has hit left boundary, back off.
             left = self.left
@@ -273,6 +278,7 @@ class Block(Bitmap):
                 # We could not correct; abort the move.
                 if self.left < 0:
                     raise MoveFailedException
+                # key word 'raise' is used to raise an exception
 
             # Same for the right boundary.
             right = self.right
@@ -302,10 +308,10 @@ class Block(Bitmap):
             # Go back to the old position if the rotation failed.
             self.cells = old_cells
             self.center = old_center
-
-    def clone(self):
+    
+    def clone(self): # clone() is a method that returns a copy of the object
         block = Block(self.shape)
-        block.cells = set(self)
+        block.cells = set(self)  
         block.center = self.center
         return block
 
@@ -334,8 +340,8 @@ class Board(Bitmap):
         self.width = width
         self.height = height
         self.score = score
-        self.cells = set()
-        self.cellcolor = {}
+        self.cells = set()  # cells is a set of tuples
+        self.cellcolor = {} # cellcolor is a dictionary
         self.lock = Lock()
         self.bombs_remaining = bombs_remaining
         self.discards_remaining = discards_remaining
@@ -357,6 +363,8 @@ class Board(Bitmap):
         """
 
         return all((x, line) in self for x in range(0, self.width))
+        # all() returns True if all elements in the iterable are True
+        # iterate through the range of x values and check if the cell is in the board
 
     def remove_line(self, line):
         """
@@ -366,12 +374,14 @@ class Board(Bitmap):
         self.cellcolor = {
             (x, y) if y > line else (x, y+1): c
             for (x, y), c in self.cellcolor.items() if y != line
-        }
+        }  # dictionary comprehension 
+        # iterate through the cellcolor dictionary and add the cell to the new dictionary
+        #  if the y value is not equal to the line
 
         self.cells = {
             (x, y) if y > line else (x, y+1)
             for (x, y) in self if y != line
-        }
+        } # set comprehension
 
     def clean(self):
         """
@@ -435,7 +445,7 @@ class Board(Bitmap):
         If this is true, then the game is over.
         """
 
-        with self.lock:
+        with self.lock:  # lock is a threading.Lock object
             return self.falling is None or not self.falling.collides(self)
 
     def place_next_block(self):
@@ -462,8 +472,8 @@ class Board(Bitmap):
         # if choose_action yielded a generator, we'll need to perform
         # the action on the clone as well as this board.  Otherwise
         # only apply it on this board.
-        if clone:
-            fn(clone, action)
+        if clone: # if clone is not None
+            fn(clone, action) #
         return fn(self,action)
 
     def run_player(self, player):
@@ -474,7 +484,7 @@ class Board(Bitmap):
         """
 
         while True:
-            clone = self.clone()
+            clone = self.clone() # clone the board
             actions = player.choose_action(clone)
 
             try:
@@ -517,6 +527,8 @@ class Board(Bitmap):
 
         # Initialize by choosing the "next" block first.
         yield self.run_adversary(adversary)
+        # 'yield' used to return a generator object 
+        #  can obtain the next value from the generator by calling the 'next()' method 
 
         # Place this block on the board
         self.place_next_block()
@@ -539,6 +551,8 @@ class Board(Bitmap):
         else:
             # A fallen block becomes part of the cells on the board.
             self.cells |= self.falling.cells
+            # '| = ' is a union operator
+            # add the cells of the falling block to the cells of the board
             for pos in self.falling.cells:
                 self.cellcolor[pos] = self.falling.color
         self.falling = None
@@ -560,7 +574,7 @@ class Board(Bitmap):
 
         with self.lock:
             if self.falling.move(direction, self):
-                self.land_block()
+                self.land_block() 
                 return True
 
             # Block has not fallen yet; apply the implicit move down.

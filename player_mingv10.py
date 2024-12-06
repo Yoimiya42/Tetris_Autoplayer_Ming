@@ -1,6 +1,3 @@
-
-# v7.0
-
 from board import Direction, Rotation, Action, Shape
 from random import Random
 import time
@@ -18,15 +15,15 @@ class MingPlayer(Player):
     previous_height = 24
     previous_holes = 0
     # weighted for each heuristic
-    weighted_height= - 0.51
-    weighted_holes = - 0.95
-    weighted_bumpiness = - 0.18
-    weighted_lines_cleared = 1.3 #0.760066
+    weighted_height= - 0.510066
+    weighted_holes = - 0.955 #- 0.954915
+    weighted_bumpiness = - 0.184483
+    weighted_lines_cleared = 1.5 #0.760066
 
     bottom_holes_penalty = 0
 
-
-
+    initLine = 0
+    
     counter_block = 1
 
     lines_cleared = 0
@@ -105,7 +102,8 @@ class MingPlayer(Player):
         bumpiness = 0
         
         for i in range(len(height_list) - 1):
-            bumpiness += abs(height_list[i] - height_list[i+1])
+            bumpiness += abs(height_list[i] - height_list[i+1]) 
+            #abs(height_list[i] - height_list[i+1])
         return bumpiness
 
     #  Heuristic 5 :  Lines Cleared
@@ -114,11 +112,11 @@ class MingPlayer(Player):
         current_score = board.score
         diff_score = current_score - self.previous_score
 
-        lines_cleared =0 
+        self.lines_cleared =0 
 
         if diff_score >= 1600:
             self.lines_cleared = 4
-            return 100
+            return 100 #100
         
         elif diff_score >= 400:
             self.lines_cleared = 3
@@ -127,7 +125,7 @@ class MingPlayer(Player):
         elif diff_score >= 25:
             self.lines_cleared = 1
 
-        return lines_cleared * self.weighted_lines_cleared
+        return self.lines_cleared * self.weighted_lines_cleared
     
     # Heuristic 6 
                                
@@ -154,10 +152,8 @@ class MingPlayer(Player):
 #_________________________________________________________________________________________________________#
    # Action Selection
     
-
-
-
-
+  
+        
 
 
 
@@ -179,8 +175,8 @@ class MingPlayer(Player):
         # self.bottom_holes_penalty = 0
 
         max_height = max(self._generate_height_lists(board))
-        min_height = min(self._generate_height_lists(board))
-        diff_height = max_height - min_height
+        first_height = self._generate_height_lists(board)[0]
+        diff_height = max_height - first_height
         self.prevHeight = self.get_stack_height(board)
 
 
@@ -196,12 +192,12 @@ class MingPlayer(Player):
         if self.discord_counter > 10 and board.discards_remaining > 0 and max_height > 16 and self.counter_block > 150:
             self.discord_counter -= 1
             return [Action.Discard]  
-        if self.discord_counter > 6 and board.discards_remaining > 0 and self.counter_block > 350:
+        if self.discord_counter > 6 and board.discards_remaining > 0 and max_height > 14 and self.counter_block > 300:
             self.discord_counter -= 1
             return [Action.Discard]
 
         ###### 1st block ######
-        if max_height < 6 and diff_height != 4:
+        if max_height < 8 and diff_height < 6:
             start = 1 
         else:
             start = 0 
@@ -214,7 +210,7 @@ class MingPlayer(Player):
 
                 if rot1 > 0:
                     for _ in range(0, rot1):
-                        if demo1_board.falling is not None:
+                        if demo1_board.falling is not None and demo1_board.falling.shape != Shape.O:
                             demo1_board.rotate(Rotation.Anticlockwise)
                             actions_list1.append(Rotation.Anticlockwise)
 
@@ -254,20 +250,17 @@ class MingPlayer(Player):
                     for trans2 in range(10):
                         for rot2 in range(4):
                             demo2_board = demo1_board.clone()
-                            actions_list2 = []
                             has_landed2 = False
                             if rot2 > 0:
                                 for _ in range(0, rot2):
-                                    if demo2_board.falling is not None:
+                                    if demo2_board.falling is not None and demo2_board.falling.shape != Shape.O:
                                         demo2_board.rotate(Rotation.Anticlockwise)
-                                        actions_list2.append(Rotation.Anticlockwise)
 
                             if demo2_board.falling is not None:
                                 start_x2 = demo2_board.falling.left
 
                                 while start_x2 > trans2 and has_landed2 is False:
                                     demo2_board.move(Direction.Left)
-                                    actions_list2.append(Direction.Left)
 
                                     if demo2_board.falling is not None:
                                         start_x2 = demo2_board.falling.left
@@ -277,7 +270,6 @@ class MingPlayer(Player):
 
                                 while start_x2 < trans2 and has_landed2 is False:
                                     demo2_board.move(Direction.Right)
-                                    actions_list2.append(Direction.Right)
 
                                     if demo2_board.falling is not None:
                                         start_x2 = demo2_board.falling.left
@@ -287,7 +279,6 @@ class MingPlayer(Player):
 
                                 if has_landed2 is False:
                                     demo2_board.move(Direction.Drop)
-                                    actions_list2.append(Direction.Drop)
 
                                 score2 = self.evaluation(demo2_board)
                                 final_score = score2
@@ -300,9 +291,8 @@ class MingPlayer(Player):
 
         if self._get_max_height(best_board) > 16 and self.lines_cleared <= 1 and board.bombs_remaining > 0:
             return Action.Bomb
-                                   
-
-        if best_holes > self.previous_holes and board.discards_remaining > 0:
+        
+        if best_holes - self.previous_holes > 0 and board.discards_remaining > 0 :
             return Action.Discard
 
         print("Best score: ", best_score)

@@ -1,10 +1,9 @@
-
-# v7.0
-
 from board import Direction, Rotation, Action, Shape
 from random import Random
 import time
 
+# v9.0 adjust some parameters
+#      some new algorithms
 
 class Player:
     def choose_action(self, board):
@@ -18,18 +17,16 @@ class MingPlayer(Player):
     previous_height = 24
     previous_holes = 0
     # weighted for each heuristic
-    weighted_height= - 0.51
-    weighted_holes = - 0.95
-    weighted_bumpiness = - 0.18
-    weighted_lines_cleared = 1.3 #0.760066
+    weighted_height= - 0.510066
+    weighted_holes =   -0.955  #- 0.954915
+    weighted_bumpiness = - 0.184483
+    weighted_lines_cleared = 1.5 #0.760066
 
-    bottom_holes_penalty = 0
-
-
-
-    counter_block = 1
+    # bottom_holes_penalty = 0
 
     lines_cleared = 0
+
+    counter_block = 1
     
     discord_counter = 0
 #_______________________________________________________________________________#
@@ -79,13 +76,31 @@ class MingPlayer(Player):
                     tip_reached = True
                 if tip_reached and (x, y) not in board.cells:
                     holes_lists [x] += 1 
-                    # if y >= board.height - 4:
-                    #     holes_lists [x] += (y - (board.height - 4) + 1)
-
+            
         return holes_lists 
     
     def calculate_total_holes(self, board):
         return sum(self._generate_holes_lists(board))
+    
+    def calculate_bottom_holes_penalty(self, board):
+        bottom_holes_penalty = 0
+        for x in range(10):
+            tip_reached = False
+            for y in range(16,24):
+                if (x,y) in board.cells:
+                    tip_reached = True
+                if tip_reached and (x, y) not in board.cells:
+                    if y == 20:
+                        bottom_holes_penalty += 5
+                    if y == 21:
+                        bottom_holes_penalty += 10
+                    if y == 22:
+                        bottom_holes_penalty += 15
+                    if y == 23:
+                        bottom_holes_penalty += 20
+                        
+        return bottom_holes_penalty
+            
     
     # Heuristic 3 :  Wells
     def calculate_wells(self,board):
@@ -109,16 +124,17 @@ class MingPlayer(Player):
         return bumpiness
 
     #  Heuristic 5 :  Lines Cleared
+
     def calculate_lines_cleared(self, board):
-  
+
         current_score = board.score
         diff_score = current_score - self.previous_score
 
-        lines_cleared =0 
+        self.lines_cleared =0 
 
         if diff_score >= 1600:
             self.lines_cleared = 4
-            return 100
+            return 100 #100
         
         elif diff_score >= 400:
             self.lines_cleared = 3
@@ -126,41 +142,65 @@ class MingPlayer(Player):
             self.lines_cleared = 2
         elif diff_score >= 25:
             self.lines_cleared = 1
+        
+        return self.lines_cleared
+    
 
-        return lines_cleared * self.weighted_lines_cleared
+    def calculate_consecutive_lines(self, board):
+        consecutive_lines = 0
+        max_line= 0
+        self.initLine=-1
+        for y in range(0,24):
+            if all((x, y) in board.cells for x in range(1, 10)) and (0, y) not in board.cells:
+                consecutive_lines+=1
+                max_line = max(max_line, consecutive_lines)
+                if max_line == consecutive_lines:
+                    self.initLine = y
+            else:
+                consecutive_lines = 0
+
+        max_line=min(max_line, 4)
+                
+        
+    
     
     # Heuristic 6 
+    def bottommost_line_cleared(self, board):
+        bottommost_line_cleared = 0
+        if all((x,23) in board.cells for x in range(10)):
+            bottommost_line_cleared = 1
+        return bottommost_line_cleared
+                
                                
     
 ######################################### Evaluation Function #############################################
     def evaluation(self, board):
 
         height_increase = self.calculate_height_increase(board)
+
         bumpiness = self.calculate_bumpiness(board)
+
         holes = self.calculate_total_holes(board)
+        holes_penalty = self.calculate_bottom_holes_penalty(board)
         wells = self.calculate_wells(board)
+
         lines_cleared = self.calculate_lines_cleared(board)
+        bottommost_line_cleared = self.bottommost_line_cleared(board)
         
 
         evaluation_score = (height_increase * self.weighted_height 
                             + holes * self.weighted_holes
-                            # + self.bottom_holes_penalty * self.weighted_holes
+                            # + holes_penalty * self.weighted_holes
                             + wells * self.weighted_holes * 2.0
-                            + bumpiness * self.weighted_bumpiness 
-                            + lines_cleared)
+                            + bumpiness * self.weighted_bumpiness
+                            # + bottommost_line_cleared * self.weighted_lines_cleared * 5
+                            + lines_cleared * self.weighted_lines_cleared)
         
         
         return evaluation_score
 #_________________________________________________________________________________________________________#
    # Action Selection
-    
-
-
-
-
-
-
-
+    # 
 
 #_______________________________________________________________________________#
     def choose_action(self, board):
@@ -179,8 +219,8 @@ class MingPlayer(Player):
         # self.bottom_holes_penalty = 0
 
         max_height = max(self._generate_height_lists(board))
-        min_height = min(self._generate_height_lists(board))
-        diff_height = max_height - min_height
+        first_height = self._generate_height_lists(board)[0]
+        diff_height = max_height - first_height
         self.prevHeight = self.get_stack_height(board)
 
 
@@ -196,12 +236,12 @@ class MingPlayer(Player):
         if self.discord_counter > 10 and board.discards_remaining > 0 and max_height > 16 and self.counter_block > 150:
             self.discord_counter -= 1
             return [Action.Discard]  
-        if self.discord_counter > 6 and board.discards_remaining > 0 and self.counter_block > 350:
+        if self.discord_counter > 6 and board.discards_remaining > 0 and max_height > 14 and self.counter_block > 300:
             self.discord_counter -= 1
             return [Action.Discard]
 
         ###### 1st block ######
-        if max_height < 6 and diff_height != 4:
+        if max_height < 8 and diff_height < 6:
             start = 1 
         else:
             start = 0 
@@ -214,7 +254,7 @@ class MingPlayer(Player):
 
                 if rot1 > 0:
                     for _ in range(0, rot1):
-                        if demo1_board.falling is not None:
+                        if demo1_board.falling is not None and demo1_board.falling.shape != Shape.O:
                             demo1_board.rotate(Rotation.Anticlockwise)
                             actions_list1.append(Rotation.Anticlockwise)
 
@@ -258,7 +298,7 @@ class MingPlayer(Player):
                             has_landed2 = False
                             if rot2 > 0:
                                 for _ in range(0, rot2):
-                                    if demo2_board.falling is not None:
+                                    if demo2_board.falling is not None and demo2_board.falling.shape != Shape.O:
                                         demo2_board.rotate(Rotation.Anticlockwise)
                                         actions_list2.append(Rotation.Anticlockwise)
 
@@ -300,10 +340,6 @@ class MingPlayer(Player):
 
         if self._get_max_height(best_board) > 16 and self.lines_cleared <= 1 and board.bombs_remaining > 0:
             return Action.Bomb
-                                   
-
-        if best_holes > self.previous_holes and board.discards_remaining > 0:
-            return Action.Discard
 
         print("Best score: ", best_score)
         print("Best actions: ", best_actions)

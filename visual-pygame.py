@@ -4,7 +4,9 @@ from board import Board, Direction, Rotation, Action, Shape
 from constants import BOARD_WIDTH, BOARD_HEIGHT, DEFAULT_SEED, INTERVAL, \
     BLOCK_LIMIT
 from exceptions import BlockLimitException
-from player import Player, SelectedPlayer
+
+from player_mingv14 import Player, SelectedPlayer
+#from  /**EDIT**/ import Player, SelectedPlayer
 
 import pygame
 
